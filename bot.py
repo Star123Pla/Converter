@@ -1,5 +1,4 @@
 import requests
-import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,7 +9,7 @@ from telegram.ext import (
     filters,
 )
 
-TOKEN = os.getenv("8205557147:AAFYGuFUR_fJNn0NhE2xBZIW_ZCDM0D5q5A")
+TOKEN = 8205557147:AAFYGuFUR_fJNn0NhE2xBZIW_ZCDM0D5q5A
 
 # Храним состояние пользователя
 user_state = {}
@@ -130,3 +129,4 @@ if __name__ == "__main__":
 
     print("Бот запущен...")
     app.run_polling()
+
