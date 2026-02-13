@@ -90,20 +90,6 @@ async def to_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Введи сумму в {user_state[query.from_user.id]['from']}:"
     )
 
-async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает в главное меню"""
-    query = update.callback_query
-    await query.answer()
-    
-    keyboard = [
-        [InlineKeyboardButton("💱 Выбрать валюты", callback_data="choose")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        "Выбери действие:",
-        reply_markup=reply_markup
-    )
-
 async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
 
@@ -125,10 +111,9 @@ async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         result = amount * rate
 
-        # Создаем клавиатуру для возврата в меню
+        # Кнопка для новой конвертации
         keyboard = [
-            [InlineKeyboardButton("💱 Новая конвертация", callback_data="choose")],
-            [InlineKeyboardButton("🏠 В главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton("💱 Новая конвертация", callback_data="choose")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -136,6 +121,9 @@ async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 {amount} {from_cur} ≈ {result:.4f} {to_cur}",
             reply_markup=reply_markup
         )
+
+        # Очищаем состояние пользователя
+        del user_state[user_id]
 
     except:
         await update.message.reply_text("❌ Введи корректное число.")
@@ -147,7 +135,6 @@ if __name__ == "__main__":
     app.add_handler(CallbackQueryHandler(choose, pattern="choose"))
     app.add_handler(CallbackQueryHandler(from_currency, pattern="from_"))
     app.add_handler(CallbackQueryHandler(to_currency, pattern="to_"))
-    app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, convert))
 
     print("Бот запущен...")
