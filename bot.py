@@ -22,6 +22,7 @@ def get_crypto_price(crypto, vs):
         "BTC": "bitcoin",
         "ETH": "ethereum",
         "USDT": "tether",
+        "SOL": "solana",
     }
     params = {
         "ids": ids_map[crypto],
@@ -49,7 +50,7 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT"]
+    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT", "SOL"]
 
     keyboard = []
     for c in currencies:
@@ -67,7 +68,7 @@ async def from_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from_cur = query.data.split("_")[1]
     user_state[query.from_user.id] = {"from": from_cur}
 
-    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT"]
+    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT", "SOL"]
 
     keyboard = []
     for c in currencies:
@@ -102,9 +103,9 @@ async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
         to_cur = user_state[user_id]["to"]
 
         # Определяем тип конвертации
-        if from_cur in ["TON", "BTC", "ETH", "USDT"]:
+        if from_cur in ["TON", "BTC", "ETH", "USDT", "SOL"]:
             rate = get_crypto_price(from_cur, to_cur)
-        elif to_cur in ["TON", "BTC", "ETH", "USDT"]:
+        elif to_cur in ["TON", "BTC", "ETH", "USDT", "SOL"]:
             rate = 1 / get_crypto_price(to_cur, from_cur)
         else:
             rate = get_fiat_rate(from_cur, to_cur)
@@ -152,4 +153,5 @@ if __name__ == "__main__":
 
     print("Бот запущен...")
     app.run_polling()
+
 
