@@ -1,159 +1,133 @@
-import asyncio
-import aiohttp
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.filters import CommandStart
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.memory import MemoryStorage
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
-BOT_TOKEN = "8205557147:AAFYGuFUR_fJNn0NhE2xBZIW_ZCDM0D5q5A"
+TOKEN = "8205557147:AAFYGuFUR_fJNn0NhE2xBZIW_ZCDM0D5q5A"
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+# Храним состояние пользователя
+user_state = {}
 
-# ----------- FSM -----------
-class ConvertState(StatesGroup):
-    choosing_from = State()
-    choosing_to = State()
-    entering_amount = State()
+# Курсы крипты через CoinGecko
+def get_crypto_price(crypto, vs):
+    url = "https://api.coingecko.com/api/v3/simple/price"
+    ids_map = {
+        "TON": "the-open-network",
+        "BTC": "bitcoin",
+        "ETH": "ethereum",
+        "USDT": "tether",
+    }
+    params = {
+        "ids": ids_map[crypto],
+        "vs_currencies": vs.lower(),
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    return data[ids_map[crypto]][vs.lower()]
 
+# Курсы фиата
+def get_fiat_rate(base, target):
+    url = f"https://open.er-api.com/v6/latest/{base}"
+    response = requests.get(url)
+    data = response.json()
+    return data["rates"][target]
 
-# ----------- Главное меню -----------
-def main_menu():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="💱 Конвертировать валюту", callback_data="convert")
-    kb.adjust(1)
-    return kb.as_markup()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("💱 Выбрать валюты", callback_data="choose")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выбери действие:", reply_markup=reply_markup)
 
+async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-# ----------- Валюты -----------
-POPULAR_CURRENCIES = [
-    "USD", "EUR", "RUB", "TON", "BTC", "ETH"
-]
+    currencies = ["RUB", "USD", "EUR", "TON", "BTC", "ETH", "USDT"]
 
+    keyboard = []
+    for c in currencies:
+        keyboard.append([InlineKeyboardButton(c, callback_data=f"from_{c}")])
 
-def currency_keyboard(prefix):
-    kb = InlineKeyboardBuilder()
-    for cur in POPULAR_CURRENCIES:
-        kb.button(text=cur, callback_data=f"{prefix}_{cur}")
-    kb.button(text="⬅️ В главное меню", callback_data="back_main")
-    kb.adjust(3)
-    return kb.as_markup()
-
-
-# ----------- Старт -----------
-@dp.message(CommandStart())
-async def start(message: Message, state: FSMContext):
-    await state.clear()
-    await message.answer("🚀 Главное меню:", reply_markup=main_menu())
-
-
-# ----------- Назад в меню -----------
-@dp.callback_query(F.data == "back_main")
-async def back_main(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text("🚀 Главное меню:", reply_markup=main_menu())
-    await callback.answer()
-
-
-# ----------- Начало конвертации -----------
-@dp.callback_query(F.data == "convert")
-async def choose_from(callback: CallbackQuery, state: FSMContext):
-    await state.set_state(ConvertState.choosing_from)
-    await callback.message.edit_text("Выбери валюту ИЗ:", reply_markup=currency_keyboard("from"))
-    await callback.answer()
-
-
-# ----------- Выбор FROM -----------
-@dp.callback_query(ConvertState.choosing_from, F.data.startswith("from_"))
-async def choose_to(callback: CallbackQuery, state: FSMContext):
-    from_currency = callback.data.split("_")[1]
-    await state.update_data(from_currency=from_currency)
-    await state.set_state(ConvertState.choosing_to)
-
-    await callback.message.edit_text(
-        f"Конвертируем из {from_currency}\n\nВыбери валюту В:",
-        reply_markup=currency_keyboard("to")
+    await query.edit_message_text(
+        "Выбери из какой валюты конвертировать:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
-    await callback.answer()
 
+async def from_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-# ----------- Выбор TO -----------
-@dp.callback_query(ConvertState.choosing_to, F.data.startswith("to_"))
-async def enter_amount(callback: CallbackQuery, state: FSMContext):
-    to_currency = callback.data.split("_")[1]
-    await state.update_data(to_currency=to_currency)
-    await state.set_state(ConvertState.entering_amount)
+    from_cur = query.data.split("_")[1]
+    user_state[query.from_user.id] = {"from": from_cur}
 
-    await callback.message.edit_text(
-        "Введите сумму (можно 1.7 или 1,7):",
-        reply_markup=currency_keyboard("cancel")
+    currencies = ["RUB", "USD", "EUR", "TON", "BTC", "ETH", "USDT"]
+
+    keyboard = []
+    for c in currencies:
+        if c != from_cur:
+            keyboard.append([InlineKeyboardButton(c, callback_data=f"to_{c}")])
+
+    await query.edit_message_text(
+        f"Конвертировать из {from_cur} во что?",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
-    await callback.answer()
 
+async def to_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-# ----------- Парсинг числа -----------
-def parse_amount(text):
+    to_cur = query.data.split("_")[1]
+    user_state[query.from_user.id]["to"] = to_cur
+
+    await query.edit_message_text(
+        f"Введи сумму в {user_state[query.from_user.id]['from']}:"
+    )
+
+async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+
+    if user_id not in user_state:
+        return
+
     try:
-        text = text.replace(",", ".")
-        value = float(text)
-        if value <= 0:
-            return None
-        return value
-    except ValueError:
-        return None
+        amount = float(update.message.text.replace(",", "."))
+        from_cur = user_state[user_id]["from"]
+        to_cur = user_state[user_id]["to"]
 
+        # Определяем тип конвертации
+        if from_cur in ["TON", "BTC", "ETH", "USDT"]:
+            rate = get_crypto_price(from_cur, to_cur)
+        elif to_cur in ["TON", "BTC", "ETH", "USDT"]:
+            rate = 1 / get_crypto_price(to_cur, from_cur)
+        else:
+            rate = get_fiat_rate(from_cur, to_cur)
 
-# ----------- Получение курса -----------
-async def get_rate(from_cur, to_cur):
-    url = f"https://api.exchangerate.host/convert?from={from_cur}&to={to_cur}"
+        result = amount * rate
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            data = await resp.json()
-            return data["result"]
+        await update.message.reply_text(
+            f"💰 {amount} {from_cur} ≈ {result:.4f} {to_cur}"
+        )
 
-
-# ----------- Ввод суммы -----------
-@dp.message(ConvertState.entering_amount)
-async def convert_currency(message: Message, state: FSMContext):
-    amount = parse_amount(message.text)
-
-    if amount is None:
-        await message.answer("❌ Введи корректное число.")
-        return
-
-    data = await state.get_data()
-    from_currency = data["from_currency"]
-    to_currency = data["to_currency"]
-
-    rate = await get_rate(from_currency, to_currency)
-
-    if rate is None:
-        await message.answer("Ошибка получения курса.")
-        return
-
-    result = amount * rate
-
-    kb = InlineKeyboardBuilder()
-    kb.button(text="⬅️ В главное меню", callback_data="back_main")
-    kb.adjust(1)
-
-    await message.answer(
-        f"💱 Результат:\n\n"
-        f"{amount} {from_currency} = {round(result, 4)} {to_currency}",
-        reply_markup=kb.as_markup()
-    )
-
-    await state.clear()
-
-
-# ----------- Запуск -----------
-async def main():
-    await dp.start_polling(bot)
-
+    except:
+        await update.message.reply_text("❌ Введи корректное число.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(choose, pattern="choose"))
+    app.add_handler(CallbackQueryHandler(from_currency, pattern="from_"))
+    app.add_handler(CallbackQueryHandler(to_currency, pattern="to_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, convert))
+
+    print("Бот запущен...")
+    app.run_polling()
+
+
