@@ -125,8 +125,21 @@ async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Очищаем состояние пользователя
         del user_state[user_id]
 
-    except:
-        await update.message.reply_text("❌ Введи корректное число.")
+    except Exception as e:
+        # Кнопка для возврата в меню при ошибке
+        keyboard = [
+            [InlineKeyboardButton("💱 Выбрать валюты", callback_data="choose")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            "❌ Введи корректное число.",
+            reply_markup=reply_markup
+        )
+        
+        # Очищаем состояние пользователя
+        if user_id in user_state:
+            del user_state[user_id]
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
