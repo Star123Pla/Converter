@@ -1,2 +1,7 @@
 python-telegram-bot
+
 requests
+
+aiogram
+
+aiohttp
