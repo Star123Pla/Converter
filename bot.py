@@ -49,7 +49,7 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    currencies = ["RUB", "USD", "EUR", "TON", "BTC", "ETH", "USDT"]
+    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT"]
 
     keyboard = []
     for c in currencies:
@@ -67,7 +67,7 @@ async def from_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from_cur = query.data.split("_")[1]
     user_state[query.from_user.id] = {"from": from_cur}
 
-    currencies = ["RUB", "USD", "EUR", "TON", "BTC", "ETH", "USDT"]
+    currencies = ["RUB", "USD", "GEL", "EUR", "TON", "BTC", "ETH", "USDT"]
 
     keyboard = []
     for c in currencies:
@@ -152,3 +152,4 @@ if __name__ == "__main__":
 
     print("Бот запущен...")
     app.run_polling()
+
