@@ -9,7 +9,7 @@ from telegram.ext import (
     filters,
 )
 
-TOKEN = "8205557147:AAFYGuFUR_fJNn0NhE2xBZIW_ZCDM0D5q5A"
+TOKEN = ""
 
 # Храним состояние пользователя
 user_state = {}
@@ -153,5 +153,6 @@ if __name__ == "__main__":
 
     print("Бот запущен...")
     app.run_polling()
+
 
 
